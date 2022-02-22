@@ -50,17 +50,26 @@ class MeLU(torch.nn.Module):
         self.use_cuda = config['use_cuda']
         self.model = user_preference_estimator(config)
         self.local_lr = config['local_lr']
+        self.local_update_target_weight_name = ['fc1.weight', 'fc1.bias', 'fc2.weight', 'fc2.bias', 'linear_out.weight', 'linear_out.bias']
         self.store_parameters()
         self.meta_optim = torch.optim.Adam(self.model.parameters(), lr=config['lr'])
-        self.local_update_target_weight_name = ['fc1.weight', 'fc1.bias', 'fc2.weight', 'fc2.bias', 'linear_out.weight', 'linear_out.bias']
 
     def store_parameters(self):
-        self.keep_weight = deepcopy(self.model.state_dict())
-        self.weight_name = list(self.keep_weight.keys())
-        self.weight_len = len(self.keep_weight)
+        self.keep_weight = OrderedDict()
+        for name in self.local_update_target_weight_name:
+            layer, term = name.split('.')
+            self.keep_weight[name] = getattr(getattr(self.model, layer), term)
+        self.weight_name = list(self.model.state_dict().keys())
+        self.weight_len = len(self.weight_name)
         self.fast_weights = OrderedDict()
 
+    def local_update(self, weights):
+        for name in self.local_update_target_weight_name:
+            layer, term = name.split('.')
+            setattr(getattr(self.model, layer), term, torch.nn.Parameter(weights[name]))
+
     def forward(self, support_set_x, support_set_y, query_set_x, num_local_update):
+        query_set_y_pred_pre = self.model(query_set_x)
         for idx in range(num_local_update):
             if idx > 0:
                 self.model.load_state_dict(self.fast_weights)
@@ -70,19 +79,21 @@ class MeLU(torch.nn.Module):
             self.model.zero_grad()
             grad = torch.autograd.grad(loss, self.model.parameters(), create_graph=True)
             # local update
-            for i in range(self.weight_len):
+            i = 0
+            for param in self.model.parameters():
                 if self.weight_name[i] in self.local_update_target_weight_name:
-                    self.fast_weights[self.weight_name[i]] = weight_for_local_update[i] - self.local_lr * grad[i]
-                else:
-                    self.fast_weights[self.weight_name[i]] = weight_for_local_update[i]
-        self.model.load_state_dict(self.fast_weights)
+                    self.fast_weights[self.weight_name[i]] = param - self.local_lr * grad[i]
+                i += 1
+
+        self.local_update(self.fast_weights)
         query_set_y_pred = self.model(query_set_x)
-        self.model.load_state_dict(self.keep_weight)
-        return query_set_y_pred
+        self.local_update(self.keep_weight)
+        return query_set_y_pred_pre, query_set_y_pred
 
     def global_update(self, support_set_xs, support_set_ys, query_set_xs, query_set_ys, num_local_update):
         batch_sz = len(support_set_xs)
         losses_q = []
+        losses_q_pre = []
         if self.use_cuda:
             for i in range(batch_sz):
                 support_set_xs[i] = support_set_xs[i].cuda()
@@ -90,15 +101,18 @@ class MeLU(torch.nn.Module):
                 query_set_xs[i] = query_set_xs[i].cuda()
                 query_set_ys[i] = query_set_ys[i].cuda()
         for i in range(batch_sz):
-            query_set_y_pred = self.forward(support_set_xs[i], support_set_ys[i], query_set_xs[i], num_local_update)
+            query_set_y_pred_pre, query_set_y_pred = self.forward(support_set_xs[i], support_set_ys[i], query_set_xs[i], num_local_update)
             loss_q = F.mse_loss(query_set_y_pred, query_set_ys[i].view(-1, 1))
             losses_q.append(loss_q)
+            loss_q_pre = F.mse_loss(query_set_y_pred_pre, query_set_ys[i].view(-1, 1))
+            losses_q_pre.append(loss_q_pre)
         losses_q = torch.stack(losses_q).mean(0)
+        losses_q_pre = torch.stack(losses_q_pre).mean(0)
         self.meta_optim.zero_grad()
         losses_q.backward()
         self.meta_optim.step()
         self.store_parameters()
-        return
+        return losses_q_pre.data.item(), losses_q.data.item()
 
     def get_weight_avg_norm(self, support_set_x, support_set_y, num_local_update):
         tmp = 0.

@@ -13,7 +13,7 @@ def training(melu, total_dataset, batch_size, num_epoch, model_save=True, model_
 
     training_set_size = len(total_dataset)
     melu.train()
-    for _ in range(num_epoch):
+    for epo in range(num_epoch):
         random.shuffle(total_dataset)
         num_batch = int(training_set_size / batch_size)
         a,b,c,d = zip(*total_dataset)
@@ -25,7 +25,8 @@ def training(melu, total_dataset, batch_size, num_epoch, model_save=True, model_
                 query_ys = list(d[batch_size*i:batch_size*(i+1)])
             except IndexError:
                 continue
-            melu.global_update(supp_xs, supp_ys, query_xs, query_ys, config['inner'])
+            pre_loss, loss = melu.global_update(supp_xs, supp_ys, query_xs, query_ys, config['inner'])
+            print(epo, i, pre_loss, loss)
 
     if model_save:
         torch.save(melu.state_dict(), model_filename)
