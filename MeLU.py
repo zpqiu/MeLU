@@ -26,13 +26,13 @@ class user_preference_estimator(torch.nn.Module):
 
     def forward(self, x, training = True):
         rate_idx = Variable(x[:, 0], requires_grad=False)
-        genre_idx = Variable(x[:, 1:26], requires_grad=False)
-        director_idx = Variable(x[:, 26:2212], requires_grad=False)
-        actor_idx = Variable(x[:, 2212:10242], requires_grad=False)
-        gender_idx = Variable(x[:, 10242], requires_grad=False)
-        age_idx = Variable(x[:, 10243], requires_grad=False)
-        occupation_idx = Variable(x[:, 10244], requires_grad=False)
-        area_idx = Variable(x[:, 10245], requires_grad=False)
+        genre_idx = Variable(x[:, 1:11], requires_grad=False)
+        director_idx = Variable(x[:, 11:21], requires_grad=False)
+        actor_idx = Variable(x[:, 21:31], requires_grad=False)
+        gender_idx = Variable(x[:, 31], requires_grad=False)
+        age_idx = Variable(x[:, 32], requires_grad=False)
+        occupation_idx = Variable(x[:, 33], requires_grad=False)
+        area_idx = Variable(x[:, 34], requires_grad=False)
 
         item_emb = self.item_emb(rate_idx, genre_idx, director_idx, actor_idx)
         user_emb = self.user_emb(gender_idx, age_idx, occupation_idx, area_idx)

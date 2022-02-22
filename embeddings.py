@@ -13,33 +13,37 @@ class item(torch.nn.Module):
         self.embedding_dim = config['embedding_dim']
 
         self.embedding_rate = torch.nn.Embedding(
-            num_embeddings=self.num_rate, 
+            num_embeddings=self.num_rate + 1, 
             embedding_dim=self.embedding_dim
         )
-        
-        self.embedding_genre = torch.nn.Linear(
-            in_features=self.num_genre,
-            out_features=self.embedding_dim,
-            bias=False
+
+        self.embedding_genre = torch.nn.Embedding(
+            num_embeddings=self.num_genre + 1, 
+            embedding_dim=self.embedding_dim
         )
-        
-        self.embedding_director = torch.nn.Linear(
-            in_features=self.num_director,
-            out_features=self.embedding_dim,
-            bias=False
+
+        self.embedding_director = torch.nn.Embedding(
+            num_embeddings=self.num_director + 1, 
+            embedding_dim=self.embedding_dim
         )
-        
-        self.embedding_actor = torch.nn.Linear(
-            in_features=self.num_actor,
-            out_features=self.embedding_dim,
-            bias=False
+
+        self.embedding_actor = torch.nn.Embedding(
+            num_embeddings=self.num_actor + 1, 
+            embedding_dim=self.embedding_dim
         )
+
+    def multi_valued_feature_pooling(self, feature, feature_embedding):
+        # feature: [*, feature_max_len]
+        mask = torch.gt(feature, 0).float()
+        value_counts = torch.sum(mask, dim=-1, keepdim=True) + 1e-8
+        mean_pooling = torch.sum(feature_embedding * mask.unsqueeze(-1), dim=1) / value_counts
+        return mean_pooling
 
     def forward(self, rate_idx, genre_idx, director_idx, actors_idx, vars=None):
         rate_emb = self.embedding_rate(rate_idx)
-        genre_emb = self.embedding_genre(genre_idx.float()) / torch.sum(genre_idx.float(), 1).view(-1, 1)
-        director_emb = self.embedding_director(director_idx.float()) / torch.sum(director_idx.float(), 1).view(-1, 1)
-        actors_emb = self.embedding_actor(actors_idx.float()) / torch.sum(actors_idx.float(), 1).view(-1, 1)
+        genre_emb = self.multi_valued_feature_pooling(genre_idx, self.embedding_genre(genre_idx))
+        director_emb = self.multi_valued_feature_pooling(director_idx, self.embedding_director(director_idx))
+        actors_emb = self.multi_valued_feature_pooling(actors_idx, self.embedding_actor(actors_idx))
         return torch.cat((rate_emb, genre_emb, director_emb, actors_emb), 1)
 
 
@@ -53,22 +57,22 @@ class user(torch.nn.Module):
         self.embedding_dim = config['embedding_dim']
 
         self.embedding_gender = torch.nn.Embedding(
-            num_embeddings=self.num_gender,
+            num_embeddings=self.num_gender + 1,
             embedding_dim=self.embedding_dim
         )
 
         self.embedding_age = torch.nn.Embedding(
-            num_embeddings=self.num_age,
+            num_embeddings=self.num_age + 1,
             embedding_dim=self.embedding_dim
         )
 
         self.embedding_occupation = torch.nn.Embedding(
-            num_embeddings=self.num_occupation,
+            num_embeddings=self.num_occupation + 1,
             embedding_dim=self.embedding_dim
         )
 
         self.embedding_area = torch.nn.Embedding(
-            num_embeddings=self.num_zipcode,
+            num_embeddings=self.num_zipcode + 1,
             embedding_dim=self.embedding_dim
         )
 

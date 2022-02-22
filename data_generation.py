@@ -11,49 +11,60 @@ from options import states
 from dataset import movielens_1m
 
 
-def item_converting(row, rate_list, genre_list, director_list, actor_list):
-    rate_idx = torch.tensor([[rate_list.index(str(row['rate']))]]).long()
-    genre_idx = torch.zeros(1, 25).long()
+def item_converting(row, rate_dict, genre_dict, director_dict, actor_dict):
+    def _cut_and_padding(value_list, max_len=10):
+        cutted_list = value_list[:max_len]
+        return cutted_list + [0,] * (max_len - len(cutted_list))
+    # Multi-valued
+    rate_idx = torch.tensor([[rate_dict.get(str(row['rate']), 0)]]).long()
+    genre_idx = list()
     for genre in str(row['genre']).split(", "):
-        idx = genre_list.index(genre)
-        genre_idx[0, idx] = 1
-    director_idx = torch.zeros(1, 2186).long()
+        genre_idx.append(genre_dict.get(genre, 0))
+    genre_idx = torch.tensor([_cut_and_padding(genre_idx), ]).long()
+
+    director_idx = list()
     for director in str(row['director']).split(", "):
-        idx = director_list.index(re.sub(r'\([^()]*\)', '', director))
-        director_idx[0, idx] = 1
-    actor_idx = torch.zeros(1, 8030).long()
+        director = re.sub(r'\([^()]*\)', '', director)
+        director_idx.append(director_dict.get(director, 0))
+    director_idx = torch.tensor([_cut_and_padding(director_idx), ]).long()
+
+    actor_idx = list()
     for actor in str(row['actors']).split(", "):
-        idx = actor_list.index(actor)
-        actor_idx[0, idx] = 1
-    return torch.cat((rate_idx, genre_idx, director_idx, actor_idx), 1)
+        actor_idx.append(actor_dict.get(actor, 0))
+    actor_idx = torch.tensor([_cut_and_padding(actor_idx), ]).long()
+
+    return torch.cat((rate_idx, genre_idx, director_idx, actor_idx), 1) # [1, 31]
 
 
-def user_converting(row, gender_list, age_list, occupation_list, zipcode_list): 
-    gender_idx = torch.tensor([[gender_list.index(str(row['gender']))]]).long()
-    age_idx = torch.tensor([[age_list.index(str(row['age']))]]).long()
-    occupation_idx = torch.tensor([[occupation_list.index(str(row['occupation_code']))]]).long()
-    zip_idx = torch.tensor([[zipcode_list.index(str(row['zip'])[:5])]]).long()
-    return torch.cat((gender_idx, age_idx, occupation_idx, zip_idx), 1)
+def user_converting(row, gender_dict, age_dict, occupation_dict, zipcode_dict):
+    # Single-valued
+    gender_idx = torch.tensor([[gender_dict.get(str(row['gender']), 0)]]).long()
+    age_idx = torch.tensor([[age_dict.get(str(row['age']), 0)]]).long()
+    occupation_idx = torch.tensor([[occupation_dict.get(str(row['occupation_code']), 0)]]).long()
+    zip_idx = torch.tensor([[zipcode_dict.get(str(row['zip'])[:5], 0)]]).long()
+
+    return torch.cat((gender_idx, age_idx, occupation_idx, zip_idx), 1) # [1, 4]
 
 
-def load_list(fname):
-    list_ = []
+def load_dict(fname):
+    dict_ = dict()
+    # 所有feature 的index = 0为padding
     with open(fname, encoding="utf-8") as f:
-        for line in f.readlines():
-            list_.append(line.strip())
-    return list_
+        for idx, line in enumerate(f.readlines()):
+            dict_[line.strip()] = idx + 1
+    return dict_
 
 
 def generate(master_path):
     dataset_path = "movielens/ml-1m"
-    rate_list = load_list("{}/m_rate.txt".format(dataset_path))
-    genre_list = load_list("{}/m_genre.txt".format(dataset_path))
-    actor_list = load_list("{}/m_actor.txt".format(dataset_path))
-    director_list = load_list("{}/m_director.txt".format(dataset_path))
-    gender_list = load_list("{}/m_gender.txt".format(dataset_path))
-    age_list = load_list("{}/m_age.txt".format(dataset_path))
-    occupation_list = load_list("{}/m_occupation.txt".format(dataset_path))
-    zipcode_list = load_list("{}/m_zipcode.txt".format(dataset_path))
+    rate_dict = load_dict("{}/m_rate.txt".format(dataset_path))
+    genre_dict = load_dict("{}/m_genre.txt".format(dataset_path))
+    actor_dict = load_dict("{}/m_actor.txt".format(dataset_path))
+    director_dict = load_dict("{}/m_director.txt".format(dataset_path))
+    gender_dict = load_dict("{}/m_gender.txt".format(dataset_path))
+    age_dict = load_dict("{}/m_age.txt".format(dataset_path))
+    occupation_dict = load_dict("{}/m_occupation.txt".format(dataset_path))
+    zipcode_dict = load_dict("{}/m_zipcode.txt".format(dataset_path))
 
     if not os.path.exists("{}/warm_state/".format(master_path)):
         for state in states:
@@ -67,7 +78,7 @@ def generate(master_path):
     if not os.path.exists("{}/m_movie_dict.pkl".format(master_path)):
         movie_dict = {}
         for idx, row in dataset.item_data.iterrows():
-            m_info = item_converting(row, rate_list, genre_list, director_list, actor_list)
+            m_info = item_converting(row, rate_dict, genre_dict, director_dict, actor_dict)
             movie_dict[row['movie_id']] = m_info
         pickle.dump(movie_dict, open("{}/m_movie_dict.pkl".format(master_path), "wb"))
     else:
@@ -76,7 +87,7 @@ def generate(master_path):
     if not os.path.exists("{}/m_user_dict.pkl".format(master_path)):
         user_dict = {}
         for idx, row in dataset.user_data.iterrows():
-            u_info = user_converting(row, gender_list, age_list, occupation_list, zipcode_list)
+            u_info = user_converting(row, gender_dict, age_dict, occupation_dict, zipcode_dict)
             user_dict[row['user_id']] = u_info
         pickle.dump(user_dict, open("{}/m_user_dict.pkl".format(master_path), "wb"))
     else:
