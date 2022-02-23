@@ -5,15 +5,15 @@ import pickle
 from MeLU import MeLU
 from options import config
 from model_training import training
+from model_evaluation import evaluate
 from data_generation import generate
-from evidence_candidate import selection
 
 
 if __name__ == "__main__":
     master_path= "./ml"
     if not os.path.exists("{}/".format(master_path)):
         os.mkdir("{}/".format(master_path))
-        # preparing dataset. It needs about 22GB of your hard disk space.
+        # preparing dataset. It needs about 266MB of your hard disk space.
         generate(master_path)
 
     # training model.
@@ -38,7 +38,23 @@ if __name__ == "__main__":
         trained_state_dict = torch.load(model_filename)
         melu.load_state_dict(trained_state_dict)
 
-    # selecting evidence candidates.
-    evidence_candidate_list = selection(melu, master_path, config['num_candidate'])
-    for movie, score in evidence_candidate_list:
-        print(movie, score)
+    # eval model.
+    eval_set_size = int(len(os.listdir("{}/item_cold_state".format(master_path))) / 4)
+    eval_supp_xs_s = []
+    eval_supp_ys_s = []
+    eval_query_xs_s = []
+    eval_query_ys_s = []
+    for idx in range(eval_set_size):
+        eval_supp_xs_s.append(pickle.load(open("{}/item_cold_state/supp_x_{}.pkl".format(master_path, idx), "rb")))
+        eval_supp_ys_s.append(pickle.load(open("{}/item_cold_state/supp_y_{}.pkl".format(master_path, idx), "rb")))
+        eval_query_xs_s.append(pickle.load(open("{}/item_cold_state/query_x_{}.pkl".format(master_path, idx), "rb")))
+        eval_query_ys_s.append(pickle.load(open("{}/item_cold_state/query_y_{}.pkl".format(master_path, idx), "rb")))
+    eval_total_dataset = list(zip(eval_supp_xs_s, eval_supp_ys_s, eval_query_xs_s, eval_query_ys_s))
+    del(eval_supp_xs_s, eval_supp_ys_s, eval_query_xs_s, eval_query_ys_s)
+
+    evaluate(melu, eval_total_dataset)
+
+    # # selecting evidence candidates.
+    # evidence_candidate_list = selection(melu, master_path, config['num_candidate'])
+    # for movie, score in evidence_candidate_list:
+    #     print(movie, score)

@@ -1,9 +1,7 @@
 # MeLU: Meta-Learned User Preference Estimator for Cold-Start Recommendation
 
-PyTorch implementation of the paper: "MeLU: Meta-Learned User Preference Estimator for Cold-Start Recommendation", KDD, 2019.
+Official [MELU](https://github.com/hoyeoplee/MeLU) implementation + some changes
 
-## Abstract
-This paper proposes a recommender system to alleviate the coldstart problem that can estimate user preferences based on only a small number of items. To identify a user’s preference in the cold state, existing recommender systems, such as Netflix, initially provide items to a user; we call those items evidence candidates. Recommendations are then made based on the items selected by the user. Previous recommendation studies have two limitations: (1) the users who consumed a few items have poor recommendations and (2) inadequate evidence candidates are used to identify user preferences. We propose a meta-learning-based recommender system called MeLU to overcome these two limitations. From metalearning, which can rapidly adopt new task with a few examples, MeLU can estimate new user’s preferences with a few consumed items. In addition, we provide an evidence candidate selection strategy that determines distinguishing items for customized preference estimation. We validate MeLU with two benchmark datasets, and the proposed model reduces at least 5.92% mean absolute error than two comparative models on the datasets. We also conduct a user study experiment to verify the evidence selection strategy.
 
 ## Usage
 ### Requirements
@@ -13,7 +11,7 @@ This paper proposes a recommender system to alleviate the coldstart problem that
 - pandas 0.24+
 
 ### Preparing dataset
-It needs about 22GB of hard disk space.
+It needs about 266 MB of hard disk space.
 ```python
 import os
 from data_generation import generate
@@ -53,18 +51,14 @@ else:
     melu.load_state_dict(trained_state_dict)
 ```
 
-### Extracting evidence candidates
-We extract evidence candidate list based on the MeLU.
-```python
-from evidence_candidate import selection
-evidence_candidate_list = selection(melu, master_path, config['num_candidate'])
-for movie, score in evidence_candidate_list:
-    print(movie, score)
-```
-Note that, you may have a different evidence candidate list from the paper. That's because we do not open the random seeds of data generation and model training.
+### Evaluation
+The evaluation part code refers to the repo [MELU_pytorch](https://github.com/waterhorse1/MELU_pytorch).
+
+After training, we can run "`python model_evaluation.py`" to evaluate the trained model on the cold-item data set.
+
 
 ## Citation
-If you use this code, please cite the paper.
+The cite of original paper is
 ```
 @inproceedings{lee2019melu,
   title={MeLU: Meta-Learned User Preference Estimator for Cold-Start Recommendation},
