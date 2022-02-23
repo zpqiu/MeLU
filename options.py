@@ -16,10 +16,10 @@ config = {
     'use_cuda': True,
     # model setting
     'inner': 1,
-    'lr': 5e-5,
-    'local_lr': 5e-6,
+    'lr': 1e-3,
+    'local_lr': 0.01,
     'batch_size': 32,
-    'num_epoch': 20,
+    'num_epoch': 30,
     # candidate selection
     'num_candidate': 20,
 }

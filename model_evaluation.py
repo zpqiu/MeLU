@@ -32,7 +32,7 @@ def evaluate(melu, total_dataset):
             supp_y = supp_y.cuda()
             query_x = query_x.cuda()
 
-        _, query_set_y_pred = melu(supp_x, supp_y, query_x, config['inner'])
+        _, query_set_y_pred = melu(supp_x, supp_y, query_x, 1) # eval时 local update step写死为 1
         loss_all.append(F.l1_loss(query_y, query_set_y_pred.squeeze().detach().cpu()))
     
     loss_all = np.array(loss_all)

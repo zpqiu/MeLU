@@ -72,7 +72,7 @@ class MeLU(torch.nn.Module):
         query_set_y_pred_pre = self.model(query_set_x)
         for idx in range(num_local_update):
             if idx > 0:
-                self.model.load_state_dict(self.fast_weights)
+                self.model.load_state_dict(self.fast_weights, strict=False) 
             weight_for_local_update = list(self.model.state_dict().values())
             support_set_y_pred = self.model(support_set_x)
             loss = F.mse_loss(support_set_y_pred, support_set_y.view(-1, 1))
